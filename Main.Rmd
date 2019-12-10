@@ -1,26 +1,75 @@
 ---
-title: "260-main"
+title: "Using Star Ratings Data to Asses Which Medicare Part C Organizations perform best"
 output: html_document
 ---
+
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+# Overview and Motivation
+
+### Motivation
+
+We all want our parents and loved ones to recieve the best medical coverage possible. My parents are 2 years away from Medicare eligibility, and I want to take a data driven approach to finding which health insurance organizations provide the best service by analyzing Star Ratings Measurements. Medicare Part C is a program administered by the Center for Medicare and Medicaid Services (CMS) that combines Medicare Parts A and B (traditional Medicare) and optionally Part D (Prescription Drug Plan) through which beneficiaries recieve coverage through private insurance companies (United, Aetna, Humana, etc.) These insurance companies often offer greater benefits than what is offered through traditional Medicare, so it can be appealing to certain people based on their coverage needs. Enrollment in Medicare Part C has increased every year since 2005 and currently, approximately 34% of Medicare Benficiaries get their coverage through Part C^[https://www.kff.org/medicare/issue-brief/a-dozen-facts-about-medicare-advantage-in-2019/]
+
+### Overview
+
+CMS assigns the insurance contracts Category Star Ratings between 1-5 for various categories such as "Staying Healthy: Screenings, Tests and Vaccines" and "Managing Chronic (Long Term) Conditions." These categories are aggregated up to give a plan one final Star Rating. These insurance companies deeply care about having a higher Star Rating because they are rewarded lucrative benefits such as increased revenue and a longer enrollment period. Each of the Category Star Ratings is determined by sub-measures such as "Colorectal Cancer Screening," "Controlling Blood Pressure," and "Rheumatoid Arthritis Management."
+
+It is these sub-measures that we will be analyzing.
+
+# Initial Questions
+
+There are three main questions (each with several sub-questions and paths we could go down) that we want to tackle:
+
+* Are there certain insurance companies that perform better among certain measures? Which companies and which measures?
+
+* Does the size of the enrollment in the contract play an impact in measures?
+
+* For a person with specific needs due to a chronic condition, which plan features and/or organizations are the best choice to manage that condition?
 
 
+# Data
+
+There are three main data sets we are going to be pulling from:
+
+* Enrollment information for Medicare Part C plans
+
+* Contract information for Medicare Part C plans
+
+* Star Rating data for Medicare Part C plans.
+
+All of these data are publicly available through the CMS website^[https://www.cms.gov/Medicare/Prescription-Drug-Coverage/PrescriptionDrugCovGenIn/PerformanceData]. Initially the data seemed extremely messy with lots of missing values, but after a thorough investigation of the data it became much clearer. There are lots of smaller organizations with small and/or new contracts, and thus, the reporting requirements are more lenient. However, if we only consider contracts with >10,000 total enrollment (covering over 96% of enrollment,) the data is much cleaner. Ultimately, when it comes to dealing with missing data, something has to give and unless you can develop imputation methods (impossible in this circumstance) we have to take what we are given. Furthermore, missing a few small/obscure contracts will not change the nature of the information, as this nice pie-chart from the Kaiser Family Foundation shows market dominance by the major players:
+
+![](https://www.kff.org/wp-content/uploads/2019/06/9314-Figure-4.png)
 
 
-```{r}
+### Data Importing and Joining.
+
+Cleaning and organizing the data was not too intense. We had to recode a view values, perform some joins to get all the data together, and clean up values that were not reported and present them as NA so that R could digest them appropriately.
+
+```{r message=FALSE, warning=FALSE}
 library(tidyverse)
-#Enrollment data
+
+#Read in Enrollment data
 data_main<- read_csv("C:\\Users\\Daniel\\Desktop\\MPC data\\CPSC_Enrollment_2019_09\\CPSC_Enrollment_Info_2019_09.csv")
 data_main$enr= ifelse(data_main$Enrollment=='*',0,as.numeric(data_main$Enrollment))
+```
 
-#contract Information
+```{r message=FALSE, warning=FALSE}
+#Read in contract Information
 contract_info = read_csv("C:\\Users\\Daniel\\Desktop\\MPC data\\CPSC_Enrollment_2019_09\\CPSC_Contract_Info_2019_09.csv")
 
 ```
+
+```{r message=FALSE, warning=FALSE}
+#Read in Star Ratings data
+SR = read_csv("C:\\Users\\Daniel\\Desktop\\MPC data\\2018_Report_Card_Master_Table_2018_03_28_data_DW.csv")
+
+```
+
 
 ```{r}
 #Get enrollment by contract number
@@ -31,9 +80,7 @@ enrollment_data=data_main %>%
 ```
 
 ```{r}
-
 #Get Unique contract information.
-#EXCLUDE PLANS THAT ARE JUST PD.
 cntrct=contract_info %>%
   select(`Contract ID`,`Organization Type`, `Parent Organization`,`Contract Effective Date`)%>%
   distinct() %>%
@@ -44,11 +91,54 @@ cntrct=contract_info %>%
 
 ```{r}
 #Inner join data
-#EXCLUDE PLANS THAT ARE JUST PD.
+#EXCLUDE PLANS THAT ARE JUST PD, and where enrollment is 0
 main_enr_data=inner_join(enrollment_data,cntrct, by='contract')%>%
-  filter(`Organization Type` !='Medicare Prescription Drug Plan')
-
-
-
+  filter(`Organization Type` !='Medicare Prescription Drug Plan') %>%
+  filter(tot_enr>0)
 ```
+
+```{r}
+#inner join SR data
+
+SR2=SR%>%
+  mutate(contract=CONTRACT_ID)%>%
+  select (-c(`Organization Type`, `Parent Organization`))
+full_data=inner_join(main_enr_data,SR2,by='contract')
+
+#also create sub filter where enrollment is  > 10000
+enr_10000=full_data %>%
+  filter(tot_enr>10000)
+#note this is still over 96% of all enrollment so we are not missing much.
+sum(enr_10000$tot_enr)/sum(full_data$tot_enr)
+```
+
+
+# Exploratory Analysis.
+
+Manual inspection of the measures taken help us focus in on the specific questions we want to answer. To cover a broad range of categories/questions we will consider the following measures:
+
+
+### **Measure of overall effectiveness**
+
+* **Members Choosing to Leave the Plan:** This is not a perfect measure, as some areas have less plans operating in them, but seeing as how traditional Medicare is always an option, this measure should give information of how satisfied plan beneficiaries are.
+
+* **Rating of Health Care Quality:** It is obvious why this is important.
+
+* **Rating of Health Plan:** Same as above.
+
+* **Getting Needed Care:** Again, obvious why it's important.
+
+### **Measures for specific diseases and chronic conditions/care.**
+
+
+
+
+
+
+
+
+
+
+
+
 
