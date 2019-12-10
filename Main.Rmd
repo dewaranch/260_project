@@ -1,0 +1,54 @@
+---
+title: "260-main"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+
+
+```{r}
+library(tidyverse)
+#Enrollment data
+data_main<- read_csv("C:\\Users\\Daniel\\Desktop\\MPC data\\CPSC_Enrollment_2019_09\\CPSC_Enrollment_Info_2019_09.csv")
+data_main$enr= ifelse(data_main$Enrollment=='*',0,as.numeric(data_main$Enrollment))
+
+#contract Information
+contract_info = read_csv("C:\\Users\\Daniel\\Desktop\\MPC data\\CPSC_Enrollment_2019_09\\CPSC_Contract_Info_2019_09.csv")
+
+```
+
+```{r}
+#Get enrollment by contract number
+enrollment_data=data_main %>%
+  group_by(`Contract Number`) %>%
+  summarize(tot_enr=sum(enr)) %>%
+  mutate(contract=`Contract Number`)
+```
+
+```{r}
+
+#Get Unique contract information.
+#EXCLUDE PLANS THAT ARE JUST PD.
+cntrct=contract_info %>%
+  select(`Contract ID`,`Organization Type`, `Parent Organization`,`Contract Effective Date`)%>%
+  distinct() %>%
+  mutate(contract=`Contract ID`)
+  
+```
+
+
+```{r}
+#Inner join data
+#EXCLUDE PLANS THAT ARE JUST PD.
+main_enr_data=inner_join(enrollment_data,cntrct, by='contract')%>%
+  filter(`Organization Type` !='Medicare Prescription Drug Plan')
+
+
+
+```
+
