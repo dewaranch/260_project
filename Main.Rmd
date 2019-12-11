@@ -41,7 +41,7 @@ There are three main data sets we are going to be pulling from:
 
 * Star Rating data for Medicare Part C plans.
 
-All of these data are publicly available through the CMS website^[https://www.cms.gov/Medicare/Prescription-Drug-Coverage/PrescriptionDrugCovGenIn/PerformanceData]. Initially the data seemed extremely messy with lots of missing values, but after a thorough investigation of the data it became much clearer. There are lots of smaller organizations with small and/or new contracts, and thus, the reporting requirements are more lenient. However, if we only consider contracts with >10,000 total enrollment (covering over 96% of enrollment,) the data is much cleaner. Ultimately, when it comes to dealing with missing data, something has to give and unless you can develop imputation methods (impossible in this circumstance) we have to take what we are given. Furthermore, missing a few small/obscure contracts will not change the nature of the information, as this nice pie-chart from the Kaiser Family Foundation shows market dominance by the major players:
+All of these data are publicly available through the CMS website^[https://www.cms.gov/Medicare/Prescription-Drug-Coverage/PrescriptionDrugCovGenIn/PerformanceData]. Initially the data seemed extremely messy with lots of missing values, but after a thorough investigation of the data it became much clearer. There are lots of smaller organizations with small and/or new contracts, and thus, the reporting requirements are more lenient. However, if we only consider contracts with >10,000 total enrollment (still covering over 96% of enrollment,) the data is much cleaner. Ultimately, when it comes to dealing with missing data, something has to give and unless you can develop imputation methods (impossible in this circumstance) we have to take what we are given. Furthermore, missing a few small/obscure contracts will not change the nature of the information, as this nice pie-chart from the Kaiser Family Foundation shows market dominance by the major players:
 
 ![](https://www.kff.org/wp-content/uploads/2019/06/9314-Figure-4.png)
 
@@ -124,15 +124,88 @@ Manual inspection of the measures taken help us focus in on the specific questio
 
 * **Rating of Health Care Quality:** It is obvious why this is important.
 
-* **Rating of Health Plan:** Same as above.
+* **Rating of Health Plan:** It is obvious why this is important.
 
 * **Getting Needed Care:** Again, obvious why it's important.
 
-### **Measures for specific diseases and chronic conditions/care.**
+### **Measures for Diabetes Care**
+
+* **Diabetes Care - Eye Exam**
+
+* **Diabetes Care - Kidney Disease Monitoring**
+
+* **Diabetes Care - Blood Sugar Controlled**
+
+* **Medication Adherence for Diabetes Medications.** Note this is only relevent for contracts offering Part D plans.
+
+### **Measures for a person in good health with few/no chronic conditions**
+
+* **Breast Cancer Screening**
+
+* **Colorectal Cancer Screening**
+
+* **Annual Flu Vaccine**
+
+* **Improving or Maintaining Physical Health**
+
+* **Improving or Maintaining Mental Health**
+
+* **Monitoring Physical Activity**
+
+* **Adult BMI Assessment**
+
+
+Let us first finalize and clean the data.
+
+```{r}
+final_data=enr_10000 %>%
+  rename(
+    BCS=`C01: Breast Cancer Screening`
+    ,CCS=`C02: Colorectal Cancer Screening`
+    ,Flu=`C03: Annual Flu Vaccine`
+    ,Phys=`C04: Improving or Maintaining Physical Health`
+    ,MH=`C05: Improving or Maintaining Mental Health`
+    ,Activity=`C06: Monitoring Physical Activity`
+    ,BMI=`C07: Adult BMI Assessment`
+    ,Leave=`C29: Members Choosing to Leave the Plan`
+    ,Quality=`C25: Rating of Health Care Quality`
+    ,PlanRating=`C26: Rating of Health Plan`
+    ,GetCare=`C22: Getting Needed Care`
+    ,DEye=`C13: Diabetes Care - Eye Exam`                                   
+    ,DKid=`C14: Diabetes Care - Kidney Disease Monitoring`                     
+    ,DSugar=`C15: Diabetes Care - Blood Sugar Controlled`
+    ,DMed=`D11: Medication Adherence for Diabetes Medications`
+    )%>%
+  select(contract, tot_enr, `Organization Type`,`Parent Organization`,`Contract Effective Date`
+         ,BCS
+         ,CCS
+         ,Flu
+         ,Phys
+         ,MH
+         ,Activity
+         ,BMI
+         ,Leave
+         ,Quality
+         ,PlanRating
+         ,GetCare
+         ,DEye
+         ,DKid
+         ,DSugar
+         ,DMed)
+
+```
 
 
 
+Let us first explore the different parent organizations:
+```{r}
+PO_enrollment=enr_10000 %>%
+  group_by(`Parent Organization`) %>%
+  summarize(all_enr=sum(tot_enr))
+```
 
+
+Once we have determined which variables we are going to be looking at
 
 
 
