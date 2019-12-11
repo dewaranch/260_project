@@ -41,7 +41,7 @@ There are three main data sets we are going to be pulling from:
 
 * Star Rating data for Medicare Part C plans.
 
-All of these data are publicly available through the CMS website^[https://www.cms.gov/Medicare/Prescription-Drug-Coverage/PrescriptionDrugCovGenIn/PerformanceData]. Initially the data seemed extremely messy with lots of missing values, but after a thorough investigation of the data it became much clearer. There are lots of smaller organizations with small and/or new contracts, and thus, the reporting requirements are more lenient. However, if we only consider contracts with >10,000 total enrollment (still covering over 96% of enrollment,) the data is much cleaner. Ultimately, when it comes to dealing with missing data, something has to give and unless you can develop imputation methods (impossible in this circumstance) we have to take what we are given. Furthermore, missing a few small/obscure contracts will not change the nature of the information, as this nice pie-chart from the Kaiser Family Foundation shows market dominance by the major players:
+All of these data are publicly available through the CMS website^[https://www.cms.gov/Medicare/Prescription-Drug-Coverage/PrescriptionDrugCovGenIn/PerformanceData]. Initially the data seemed extremely messy with lots of missing values, but after a thorough investigation of the data it became much clearer. There are lots of smaller organizations with small and/or new contracts, and thus, the reporting requirements are more lenient. However, if we only consider contracts with >10,000 total enrollment and exclude certain specific plans (Demos and employer specific) the data is much cleaner while still covering 95% of total enrollment. Ultimately, when it comes to dealing with missing data, something has to give and unless you can develop imputation methods (impossible in this circumstance) we have to take what we are given. Furthermore, missing a few small/obscure contracts will not change the nature of the information, as this nice pie-chart from the Kaiser Family Foundation shows market dominance by the major players:
 
 ![](https://www.kff.org/wp-content/uploads/2019/06/9314-Figure-4.png)
 
@@ -105,10 +105,13 @@ SR2=SR%>%
   select (-c(`Organization Type`, `Parent Organization`))
 full_data=inner_join(main_enr_data,SR2,by='contract')
 
-#also create sub filter where enrollment is  > 10000
+#also create sub filter where enrollment is  > 10000.
+#Also remove demo plans and employer specific plans (no data)
 enr_10000=full_data %>%
-  filter(tot_enr>10000)
-#note this is still over 96% of all enrollment so we are not missing much.
+  filter(tot_enr>10000) %>%
+  filter(`Organization Type` !='Demo') %>%
+  filter(`Organization Type` !='Employer/Union Only Direct Contract PDP')
+#note this is still 95% of all enrollment so we are not missing much.
 sum(enr_10000$tot_enr)/sum(full_data$tot_enr)
 ```
 
@@ -155,6 +158,10 @@ Manual inspection of the measures taken help us focus in on the specific questio
 * **Adult BMI Assessment**
 
 
+We will also asses the **Plan Type, Plan Size, ** and **Parent Organization** to see if these factors have an effect.
+
+
+
 Let us first finalize and clean the data.
 
 ```{r}
@@ -197,15 +204,174 @@ final_data=enr_10000 %>%
 
 
 
-Let us first explore the different parent organizations:
+Let us first explore the effect of plan type on overal plan effectiveness.
+
+* **Members Choosing to Leave the Plan:** This is not a perfect measure, as some areas have less plans operating in them, but seeing as how traditional Medicare is always an option, this measure should give information of how satisfied plan beneficiaries are.
+
+* **Rating of Health Care Quality:** It is obvious why this is important.
+
+* **Rating of Health Plan:** It is obvious why this is important.
+
+* **Getting Needed Care:** Again, obvious why it's important.
+
 ```{r}
-PO_enrollment=enr_10000 %>%
-  group_by(`Parent Organization`) %>%
-  summarize(all_enr=sum(tot_enr))
+# Get plan type and effectivness.
+#TWO SAMPLE T TEST FOR PLAN TYPE AND LEAVE
+
+distinct(final_data,`Organization Type`)
+
+lccp_data= final_data %>%
+  filter(`Organization Type`=="Local CCP")%>%
+  filter(Leave != "Plan too new to be measured" & Leave !="Not enough data available" & Leave !="Plan too small to be measured" )
+
+rccp_data= final_data %>%
+  filter(`Organization Type`=="Regional CCP")%>%
+  filter(Leave != "Plan too new to be measured" & Leave !="Not enough data available" & Leave !="Plan too small to be measured" )
+
+data_1876=final_data %>%
+  filter(`Organization Type`=="1876 Cost")%>%
+  filter(Leave != "Plan too new to be measured" & Leave !="Not enough data available" & Leave !="Plan too small to be measured" )
+
+
+lccp=as.numeric(substr(lccp_data$Leave,1,nchar(lccp_data$Leave)-1))
+rccp=as.numeric(substr(rccp_data$Leave,1,nchar(rccp_data$Leave)-1))
+e1876=as.numeric(substr(data_1876$Leave,1,nchar(data_1876$Leave)-1))
+pt_ttest1 <- t.test(lccp,rccp, var.equal = TRUE)
+pt_ttest1
+
+pt_ttest2 <- t.test(lccp,e1876, var.equal = TRUE)
+pt_ttest2
+
+pt_ttest3 <- t.test(rccp,e1876, var.equal = TRUE)
+pt_ttest3
+
 ```
 
 
-Once we have determined which variables we are going to be looking at
+```{r}
+# Get plan type and effectivness.
+#TWO SAMPLE T TEST Now do the same QUALITY Measure
+
+lccp_data= final_data %>%
+  filter(`Organization Type`=="Local CCP")%>%
+  filter(Quality != "Plan too new to be measured" & Quality !="Not enough data available" & Quality !="Plan too small to be measured" )
+
+rccp_data= final_data %>%
+  filter(`Organization Type`=="Regional CCP")%>%
+  filter(Quality != "Plan too new to be measured" & Quality !="Not enough data available" & Quality !="Plan too small to be measured" )
+
+data_1876=final_data %>%
+  filter(`Organization Type`=="1876 Cost")%>%
+  filter(Quality != "Plan too new to be measured" & Quality !="Not enough data available" & Quality !="Plan too small to be measured" )
+
+
+lccp=as.numeric(lccp_data$Quality)
+rccp=as.numeric(rccp_data$Quality)
+e1876=as.numeric(data_1876$Quality)
+pt_ttest1 <- t.test(lccp,rccp, var.equal = TRUE)
+pt_ttest1
+
+pt_ttest2 <- t.test(lccp,e1876, var.equal = TRUE)
+pt_ttest2
+
+pt_ttest3 <- t.test(rccp,e1876, var.equal = TRUE)
+pt_ttest3
+
+```
+
+```{r}
+# Get plan type and effectivness.
+#TWO SAMPLE T TEST Now do the same PLANRATING Measure
+
+lccp_data= final_data %>%
+  filter(`Organization Type`=="Local CCP")%>%
+  filter(PlanRating != "Plan too new to be measured" & PlanRating !="Not enough data available" & PlanRating !="Plan too small to be measured" )
+
+rccp_data= final_data %>%
+  filter(`Organization Type`=="Regional CCP")%>%
+  filter(PlanRating != "Plan too new to be measured" & PlanRating !="Not enough data available" & PlanRating !="Plan too small to be measured" )
+
+data_1876=final_data %>%
+  filter(`Organization Type`=="1876 Cost")%>%
+  filter(PlanRating != "Plan too new to be measured" & PlanRating !="Not enough data available" & PlanRating !="Plan too small to be measured" )
+
+
+lccp=as.numeric(lccp_data$PlanRating)
+rccp=as.numeric(rccp_data$PlanRating)
+e1876=as.numeric(data_1876$PlanRating)
+pt_ttest1 <- t.test(lccp,rccp, var.equal = TRUE)
+pt_ttest1
+
+pt_ttest2 <- t.test(lccp,e1876, var.equal = TRUE)
+pt_ttest2
+
+pt_ttest3 <- t.test(rccp,e1876, var.equal = TRUE)
+pt_ttest3
+
+```
+
+
+
+```{r}
+# Get plan type and effectivness.
+#TWO SAMPLE T TEST Now do the same GETCARE Measure
+
+lccp_data= final_data %>%
+  filter(`Organization Type`=="Local CCP")%>%
+  filter(GetCare != "Plan too new to be measured" & GetCare !="Not enough data available" & GetCare !="Plan too small to be measured" )
+
+rccp_data= final_data %>%
+  filter(`Organization Type`=="Regional CCP")%>%
+  filter(GetCare != "Plan too new to be measured" & GetCare !="Not enough data available" & GetCare !="Plan too small to be measured" )
+
+data_1876=final_data %>%
+  filter(`Organization Type`=="1876 Cost")%>%
+  filter(GetCare != "Plan too new to be measured" & GetCare !="Not enough data available" & GetCare !="Plan too small to be measured" )
+
+
+lccp=as.numeric(lccp_data$GetCare)
+rccp=as.numeric(rccp_data$GetCare)
+e1876=as.numeric(data_1876$GetCare)
+pt_ttest1 <- t.test(lccp,rccp, var.equal = TRUE)
+pt_ttest1
+
+pt_ttest2 <- t.test(lccp,e1876, var.equal = TRUE)
+pt_ttest2
+
+pt_ttest3 <- t.test(rccp,e1876, var.equal = TRUE)
+pt_ttest3
+
+```
+
+
+
+```{r}
+
+#Now let's run a linear regression to try and see what factors are good for diabetes care.
+
+
+
+
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
