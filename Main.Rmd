@@ -18,7 +18,7 @@ We all want our parents and loved ones to recieve the best medical coverage poss
 
 CMS assigns the insurance contracts Category Star Ratings between 1-5 for various categories such as "Staying Healthy: Screenings, Tests and Vaccines" and "Managing Chronic (Long Term) Conditions." These categories are aggregated up to give a plan one final Star Rating. These insurance companies deeply care about having a higher Star Rating because they are rewarded lucrative benefits such as increased revenue and a longer enrollment period. Each of the Category Star Ratings is determined by sub-measures such as "Colorectal Cancer Screening," "Controlling Blood Pressure," and "Rheumatoid Arthritis Management."
 
-It is these sub-measures that we will be analyzing.
+It is these sub-measures that we will be analyzing because it is precisely these sub-measures which can give us insight into how these plans are performing.
 
 # Initial Questions
 
@@ -48,7 +48,7 @@ All of these data are publicly available through the CMS website^[https://www.cm
 
 ### Data Importing and Joining.
 
-Cleaning and organizing the data was not too intense. We had to recode a view values, perform some joins to get all the data together, and clean up values that were not reported and present them as NA so that R could digest them appropriately.
+Cleaning and organizing the data was not too intense. We had to recode a few values, perform some joins to get all the data together, and clean up values that were not reported and present them as NA so that R could digest them appropriately. Most of the cleaning is actually done in the Analysis section because it was more prudent to clean the data on an ad hoc basis depending on which analysis we were trying to perform, and also maintaining the most data we can.
 
 ```{r message=FALSE, warning=FALSE}
 library(tidyverse)
@@ -116,7 +116,7 @@ sum(enr_10000$tot_enr)/sum(full_data$tot_enr)
 ```
 
 
-# Exploratory Analysis.
+# Data Analysis
 
 Manual inspection of the measures taken help us focus in on the specific questions we want to answer. To cover a broad range of categories/questions we will consider the following measures:
 
@@ -204,15 +204,9 @@ final_data=enr_10000 %>%
 
 
 
-Let us first explore the effect of plan type on overal plan effectiveness.
+Let us first explore the effect of plan type on overal plan effectiveness by looking at how they perform differently among the **Measures of Overall effectiveness** as noted above.
 
-* **Members Choosing to Leave the Plan:** This is not a perfect measure, as some areas have less plans operating in them, but seeing as how traditional Medicare is always an option, this measure should give information of how satisfied plan beneficiaries are.
-
-* **Rating of Health Care Quality:** It is obvious why this is important.
-
-* **Rating of Health Plan:** It is obvious why this is important.
-
-* **Getting Needed Care:** Again, obvious why it's important.
+To do this, we will perform 3 two-sample T-tests for each of the 4 measures comparing Local Coordinated Care Plans (LCCP) with Regional Coordinated Care Plans (RCCP) and with 1876 Cost Plans. Note that all but 1 of the 12 two-sample T-tests show significantly different means at the .05 level with 1876 cost plans performing best, then LCCPs, then RCCPs.
 
 ```{r}
 # Get plan type and effectivness.
@@ -346,27 +340,228 @@ pt_ttest3
 
 
 ```{r}
+#Lets look at some plots with diabetes metrics vs. population.
+library(lubridate)
+D1_data= final_data %>%
+  filter(DEye != "Plan too new to be measured" & DEye !="Not enough data available" & DEye !="Plan too small to be measured" & DEye !="No data available" )%>%
+  mutate(DEye=as.numeric(substr(DEye,1,nchar(DEye)-1)))%>%
+  mutate(logenr=log(tot_enr,base=10))%>%
+  mutate(yrs_old=2019-year(mdy(`Contract Effective Date`)))
+  
+D2_data= final_data %>%  
+  filter(DKid != "Plan too new to be measured" & DKid !="Not enough data available" & DKid !="Plan too small to be measured"  & DKid !="No data available" )%>%
+  mutate(DKid=as.numeric(substr(DKid,1,nchar(DKid)-1)))%>%
+  mutate(logenr=log(tot_enr,base=10))%>%
+  mutate(yrs_old=2019-year(mdy(`Contract Effective Date`)))
 
-#Now let's run a linear regression to try and see what factors are good for diabetes care.
+D3_data= final_data %>%  
+  filter(DSugar != "Plan too new to be measured" & DSugar !="Not enough data available" & DSugar !="Plan too small to be measured"  & DSugar !="No data available" & DSugar !="CMS identified issues with this plan's data")%>%
+  mutate(DSugar=as.numeric(substr(DSugar,1,nchar(DSugar)-1)))%>%
+  mutate(logenr=log(tot_enr,base=10))%>%
+  mutate(yrs_old=2019-year(mdy(`Contract Effective Date`)))
+
+D4_data= final_data %>%  
+  filter(DMed != "Plan too new to be measured" & DMed !="Not enough data available" & DMed !="Plan too small to be measured"  & DMed !="No data available" & DMed != "Plan not required to report measure")%>%
+  mutate(DMed=as.numeric(substr(DMed,1,nchar(DMed)-1)))%>%
+  mutate(logenr=log(tot_enr,base=10))%>%
+  mutate(yrs_old=2019-year(mdy(`Contract Effective Date`)))
+
+#plots
+plot(D1_data$logenr,D1_data$DEye)
+plot(D2_data$logenr,D2_data$DKid)
+plot(D3_data$logenr,D3_data$DSugar)
+plot(D4_data$logenr,D4_data$DMed)
+#There may be something here but hard to tell. Let's regress.
+
+```
+
+```{r}
+#Simple linear regression regressing on the log of population and the age of the contract.
+lm1=lm(DEye~logenr + yrs_old,data=D1_data)
+lm2=lm(DKid~logenr+ yrs_old,data=D2_data)
+lm3=lm(DSugar~logenr+ yrs_old,data=D3_data)
+lm4=lm(DMed~logenr+ yrs_old,data=D4_data)
+
+summary(lm1)
+summary(lm2)
+summary(lm3)
+summary(lm4)
+
+confint(lm1)
+confint(lm2)
+confint(lm3)
+confint(lm4)
+
+```
+Based on the coefficients of the covariates and their p values we can say that generally a larger and older Medicare Contract will provide better diabetes care.
+
+
+Now Let us do some regressions on the same covariates but looking at overall measures for healthy adults.
+```{r}
+#Lets look at some plots with  Measures for people in good health vs. population.
+library(lubridate)
+D1_data= final_data %>%
+  filter(BCS != "Plan too new to be measured" & BCS !="Not enough data available" & BCS !="Plan too small to be measured" & BCS !="No data available" )%>%
+  mutate(BCS=as.numeric(substr(BCS,1,nchar(BCS)-1)))%>%
+  mutate(logenr=log(tot_enr,base=10))%>%
+  mutate(yrs_old=2019-year(mdy(`Contract Effective Date`)))
+  
+D2_data= final_data %>%  
+  filter(CCS != "Plan too new to be measured" & CCS !="Not enough data available" & CCS !="Plan too small to be measured"  & CCS !="No data available" )%>%
+  mutate(CCS=as.numeric(substr(CCS,1,nchar(CCS)-1)))%>%
+  mutate(logenr=log(tot_enr,base=10))%>%
+  mutate(yrs_old=2019-year(mdy(`Contract Effective Date`)))
+
+D3_data= final_data %>%  
+  filter(Flu != "Plan too new to be measured" & Flu !="Not enough data available" & Flu !="Plan too small to be measured"  & Flu !="No data available" & Flu !="CMS identified issues with this plan's data")%>%
+  mutate(Flu=as.numeric(Flu))%>%
+  mutate(logenr=log(tot_enr,base=10))%>%
+  mutate(yrs_old=2019-year(mdy(`Contract Effective Date`)))
+
+D4_data= final_data %>%  
+  filter(Phys != "Plan too new to be measured" & Phys !="Not enough data available" & Phys !="Plan too small to be measured"  & Phys !="No data available" & Phys != "Plan not required to report measure")%>%
+  mutate(Phys=as.numeric(substr(Phys,1,nchar(Phys)-1)))%>%
+  mutate(logenr=log(tot_enr,base=10))%>%
+  mutate(yrs_old=2019-year(mdy(`Contract Effective Date`)))
+
+
+D5_data= final_data %>%  
+  filter(MH != "Plan too new to be measured" & MH !="Not enough data available" & MH !="Plan too small to be measured"  & MH !="No data available" )%>%
+  mutate(MH=as.numeric(substr(MH,1,nchar(MH)-1)))%>%
+  mutate(logenr=log(tot_enr,base=10))%>%
+  mutate(yrs_old=2019-year(mdy(`Contract Effective Date`)))
+
+D6_data= final_data %>%  
+  filter(Activity != "Plan too new to be measured" & Activity !="Not enough data available" & Activity !="Plan too small to be measured"  & Activity !="No data available" & Activity !="CMS identified issues with this plan's data")%>%
+  mutate(Activity=as.numeric(substr(Activity,1,nchar(Activity)-1)))%>%
+  mutate(logenr=log(tot_enr,base=10))%>%
+  mutate(yrs_old=2019-year(mdy(`Contract Effective Date`)))
+
+D7_data= final_data %>%  
+  filter(BMI != "Plan too new to be measured" & BMI !="Not enough data available" & BMI !="Plan too small to be measured"  & BMI !="No data available" & BMI != "Plan not required to report measure")%>%
+  mutate(BMI=as.numeric(substr(BMI,1,nchar(BMI)-1)))%>%
+  mutate(logenr=log(tot_enr,base=10))%>%
+  mutate(yrs_old=2019-year(mdy(`Contract Effective Date`)))
 
 
 
 
-
+#plots
+plot(D1_data$logenr,D1_data$BCS)
+plot(D2_data$logenr,D2_data$CCS)
+plot(D3_data$logenr,D3_data$Flu)
+plot(D4_data$logenr,D4_data$Phys)
+plot(D5_data$logenr,D5_data$MH)
+plot(D6_data$logenr,D6_data$Activity)
+plot(D7_data$logenr,D7_data$BMI)
+#There may be something here but hard to tell. Let's regress.
 
 ```
 
 
 
 
+```{r}
+#Simple linear regression regressing on the log of population and the age of the contract.
+lm1=lm(BCS~logenr + yrs_old,data=D1_data)
+lm2=lm(CCS~logenr+ yrs_old,data=D2_data)
+lm3=lm(Flu~logenr+ yrs_old,data=D3_data)
+lm4=lm(Phys~logenr+ yrs_old,data=D4_data)
+lm5=lm(MH~logenr + yrs_old,data=D5_data)
+lm6=lm(Activity~logenr+ yrs_old,data=D6_data)
+lm7=lm(BMI~logenr+ yrs_old,data=D7_data)
+
+summary(lm1)
+summary(lm2)
+summary(lm3)
+summary(lm4)
+summary(lm5)
+summary(lm6)
+summary(lm7)
+
+confint(lm1)
+confint(lm2)
+confint(lm3)
+confint(lm4)
+confint(lm5)
+confint(lm6)
+confint(lm7)
+
+```
+
+
+Similar to with the diabetes measures, we can see that although for some measures the age and size of the contract is not a statistically significant predictor, it usually is, and it is the case the a larger/older contract performs better because of the sign of the coefficients.
+
+Lastly, let's compare the three major private insurance players in this space that control over half of the market, United Health Group, Humana, and CVS (Aetna) using the measures for overall quality.
+
+```{r}
+Priv_data1= final_data %>%
+  filter(`Parent Organization`=='UnitedHealth Group, Inc.'
+         | `Parent Organization`=='Humana Inc.'
+         | `Parent Organization`=='CVS Health Corporation')%>%
+     filter(Leave != "Plan too new to be measured" & Leave !="Not enough data available" & Leave !="Plan too small to be measured" )%>%
+  mutate(Leave=as.numeric(substr(Leave,1,nchar(Leave)-1)))%>%
+  mutate(uhg=ifelse(`Parent Organization`=='UnitedHealth Group, Inc.',1,0))%>%
+  mutate(hum=ifelse(`Parent Organization`=='Humana Inc.',1,0))%>%
+  mutate(cvs=ifelse(`Parent Organization`=='CVS Health Corporation',1,0))
+
+Priv_data2= final_data %>%
+  filter(`Parent Organization`=='UnitedHealth Group, Inc.'
+         | `Parent Organization`=='Humana Inc.'
+         | `Parent Organization`=='CVS Health Corporation')%>%
+   filter(Quality != "Plan too new to be measured" & Quality !="Not enough data available" & Quality !="Plan too small to be measured" )%>%
+  mutate(Quality=as.numeric(Quality))%>%
+  mutate(uhg=ifelse(`Parent Organization`=='UnitedHealth Group, Inc.',1,0))%>%
+  mutate(hum=ifelse(`Parent Organization`=='Humana Inc.',1,0))%>%
+  mutate(cvs=ifelse(`Parent Organization`=='CVS Health Corporation',1,0))
+
+Priv_data3= final_data %>%
+  filter(`Parent Organization`=='UnitedHealth Group, Inc.'
+         | `Parent Organization`=='Humana Inc.'
+         | `Parent Organization`=='CVS Health Corporation')%>%
+   filter(PlanRating != "Plan too new to be measured" & PlanRating !="Not enough data available" & PlanRating !="Plan too small to be measured" )%>%
+  mutate(PlanRating=as.numeric(PlanRating))%>%
+  mutate(uhg=ifelse(`Parent Organization`=='UnitedHealth Group, Inc.',1,0))%>%
+  mutate(hum=ifelse(`Parent Organization`=='Humana Inc.',1,0))%>%
+  mutate(cvs=ifelse(`Parent Organization`=='CVS Health Corporation',1,0))
+
+Priv_data4= final_data %>%
+  filter(`Parent Organization`=='UnitedHealth Group, Inc.'
+         | `Parent Organization`=='Humana Inc.'
+         | `Parent Organization`=='CVS Health Corporation')%>%
+  filter(GetCare != "Plan too new to be measured" & GetCare !="Not enough data available" & GetCare !="Plan too small to be measured" )%>%
+  mutate(GetCare=as.numeric(GetCare))%>%
+  mutate(uhg=ifelse(`Parent Organization`=='UnitedHealth Group, Inc.',1,0))%>%
+  mutate(hum=ifelse(`Parent Organization`=='Humana Inc.',1,0))%>%
+  mutate(cvs=ifelse(`Parent Organization`=='CVS Health Corporation',1,0))
+
+```
 
 
 
+```{r}
+#Linear regression, letting UHG be the "base" category, but adding Humana/CVS as comparison categories
 
+lm1=lm(Leave~hum+cvs,data=Priv_data1)
+lm2=lm(Quality~hum+cvs,data=Priv_data2)
+lm3=lm(PlanRating~hum+cvs,data=Priv_data3)
+lm4=lm(GetCare~hum+cvs,data=Priv_data4)
 
+summary(lm1)
+summary(lm2)
+summary(lm3)
+summary(lm4)
 
+confint(lm1)
+confint(lm2)
+confint(lm3)
+confint(lm4)
 
+```
 
+Based on the results of these simple regressions, no major conclusions can be made about the quality of care based on which of the major insurers you choose, because some insurers perform better than other in various overall quality measures.
+
+# Conlusions
 
 
 
