@@ -1,5 +1,5 @@
 ---
-title: "Using Star Ratings Data to Asses Which Medicare Part C Organizations perform best"
+title: "Choosing a Medicare Advantage Plan By Looking at Star Measures"
 output: html_document
 ---
 
