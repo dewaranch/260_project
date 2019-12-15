@@ -48,9 +48,9 @@ All of these data are publicly available through the CMS website^[https://www.cm
 
 ### Data Importing and Joining.
 
-Cleaning and organizing the data was not too intense. We had to recode a few values, perform some joins to get all the data together, and clean up values that were not reported and present them as NA so that R could digest them appropriately. Most of the cleaning is actually done in the Analysis section because it was more prudent to clean the data on an ad hoc basis depending on which analysis we were trying to perform, and also maintaining the most data we can.
+Cleaning and organizing the data was the majority of the work. We had to recode a few values, perform some joins to get all the data together, and clean up values that were not reported and present them as NA so that R could digest them appropriately. Numeric data was mixed with character data, and there was several different markers more missing data. Most of the cleaning is actually done in the Analysis section because it was more prudent to clean the data on an ad hoc basis depending on which analysis we were trying to perform, and also maintaining the most data we can.
 
-```{r message=FALSE, warning=FALSE}
+```{r message=FALSE, warning=FALSE,echo=FALSE}
 library(tidyverse)
 
 #Read in Enrollment data
@@ -58,20 +58,20 @@ data_main<- read_csv("C:\\Users\\Daniel\\Desktop\\MPC data\\CPSC_Enrollment_2019
 data_main$enr= ifelse(data_main$Enrollment=='*',0,as.numeric(data_main$Enrollment))
 ```
 
-```{r message=FALSE, warning=FALSE}
+```{r message=FALSE, warning=FALSE,echo=FALSE}
 #Read in contract Information
 contract_info = read_csv("C:\\Users\\Daniel\\Desktop\\MPC data\\CPSC_Enrollment_2019_09\\CPSC_Contract_Info_2019_09.csv")
 
 ```
 
-```{r message=FALSE, warning=FALSE}
+```{r message=FALSE, warning=FALSE,echo=FALSE}
 #Read in Star Ratings data
 SR = read_csv("C:\\Users\\Daniel\\Desktop\\MPC data\\2018_Report_Card_Master_Table_2018_03_28_data_DW.csv")
 
 ```
 
 
-```{r}
+```{r message=FALSE, warning=FALSE,echo=FALSE}
 #Get enrollment by contract number
 enrollment_data=data_main %>%
   group_by(`Contract Number`) %>%
@@ -79,7 +79,7 @@ enrollment_data=data_main %>%
   mutate(contract=`Contract Number`)
 ```
 
-```{r}
+```{r message=FALSE, warning=FALSE,echo=FALSE}
 #Get Unique contract information.
 cntrct=contract_info %>%
   select(`Contract ID`,`Organization Type`, `Parent Organization`,`Contract Effective Date`)%>%
@@ -89,7 +89,7 @@ cntrct=contract_info %>%
 ```
 
 
-```{r}
+```{r message=FALSE, warning=FALSE,echo=FALSE}
 #Inner join data
 #EXCLUDE PLANS THAT ARE JUST PD, and where enrollment is 0
 main_enr_data=inner_join(enrollment_data,cntrct, by='contract')%>%
@@ -97,7 +97,7 @@ main_enr_data=inner_join(enrollment_data,cntrct, by='contract')%>%
   filter(tot_enr>0)
 ```
 
-```{r}
+```{r message=FALSE, warning=FALSE,echo=FALSE, include=FALSE}
 #inner join SR data
 
 SR2=SR%>%
@@ -139,19 +139,11 @@ Manual inspection of the measures taken help us focus in on the specific questio
 
 * **Medication Adherence for Diabetes Medications.** Note this is only relevent for contracts offering Part D plans.
 
-### **Measures for a person in good health with few/no chronic conditions**
+### **Measures Preventative Health/Screening**
 
 * **Breast Cancer Screening**
 
 * **Colorectal Cancer Screening**
-
-* **Annual Flu Vaccine**
-
-* **Improving or Maintaining Physical Health**
-
-* **Improving or Maintaining Mental Health**
-
-* **Monitoring Physical Activity**
 
 * **Adult BMI Assessment**
 
@@ -159,10 +151,7 @@ Manual inspection of the measures taken help us focus in on the specific questio
 We will also asses the **Plan Type, Plan Size, ** and **Parent Organization** to see if these factors have an effect.
 
 
-
-Let us first finalize and clean the data.
-
-```{r}
+```{r message=FALSE, warning=FALSE,echo=FALSE}
 final_data=enr_10000 %>%
   rename(
     BCS=`C01: Breast Cancer Screening`
@@ -204,9 +193,9 @@ final_data=enr_10000 %>%
 
 Let us first explore the effect of plan type on overal plan effectiveness by looking at how they perform differently among the **Measures of Overall effectiveness** as noted above.
 
-To do this, we will perform 3 two-sample T-tests for each of the 4 measures comparing Local Coordinated Care Plans (LCCP) with Regional Coordinated Care Plans (RCCP) and with 1876 Cost Plans. Note that all but 1 of the 12 two-sample T-tests show significantly different means at the .05 level with 1876 cost plans performing best, then LCCPs, then RCCPs.
+To do this, we will perform a three way ANOVA for all 4 measures comparing Local Coordinated Care Plans (LCCP) with Regional Coordinated Care Plans (RCCP) and with 1876 Cost Plans. All four tests show a statistically significant difference in means at the .05 level with 1876 cost plans performing best, then LCCPs, then RCCPs.
 
-```{r}
+```{r message=FALSE, warning=FALSE,echo=FALSE, include=FALSE}
 
 
 a_dat1=final_data%>%
@@ -246,7 +235,10 @@ a_gc = aov(GetCare ~ `Organization Type`, data = a_dat4)
 summary(a_gc)
 
 
+```
 
+
+```{r message=FALSE, warning=FALSE,echo=FALSE}
 library(ggplot2)
 a_dat1 %>% 
   ggplot(aes(x=`Organization Type`,y=Leave, fill=`Organization Type`)) +
@@ -278,7 +270,10 @@ a_dat4 %>%
 ```
 
 
-```{r}
+Next, to look at the diabetes measures, we regress the diabetes measures on the age of the plan in years and the log of the total enrollment of the plan. The images shown below plot logged enrollment against the measures. The p-values for all the regression coeffecients except for one (p=.053) are statistically significant at the .05 level.
+
+
+```{r message=FALSE, warning=FALSE,echo=FALSE, include=FALSE}
 #Lets look at some plots with diabetes metrics vs. population.
 library(lubridate)
 D1_data= final_data %>%
@@ -302,7 +297,7 @@ D4_data= final_data %>%
 
 ```
 
-```{r}
+```{r message=FALSE, warning=FALSE,echo=FALSE, include=FALSE}
 #Simple linear regression regressing on the log of population and the age of the contract.
 lm1=lm(DEye~logenr + yrs_old,data=D1_data)
 lm3=lm(DSugar~logenr+ yrs_old,data=D3_data)
@@ -319,7 +314,7 @@ coefficients(lm4)
 ```
 
 
-```{r}
+```{r message=FALSE, warning=FALSE,echo=FALSE}
 #plots
 
 D1_data %>%  ggplot(aes(logenr,DEye)) +
@@ -344,8 +339,8 @@ D4_data %>%  ggplot(aes(logenr,DMed)) +
 Based on the coefficients of the covariates and their p values we can say that generally a larger and older Medicare Contract will provide better diabetes care.
 
 
-Now Let us do some regressions on the same covariates but looking at overall measures for healthy adults.
-```{r}
+Now Let us do some regressions on the same covariates but looking at overall measures for healthy adults. Here, all the regression coefficients have p values less than .05.
+```{r message=FALSE, warning=FALSE,echo=FALSE}
 #Lets look at some plots with  Measures for people in good health vs. population.
 library(lubridate)
 D1_data= final_data %>%
@@ -373,7 +368,7 @@ D3_data= final_data %>%
 
 
 
-```{r}
+```{r message=FALSE, warning=FALSE,echo=FALSE, include=FALSE}
 #Simple linear regression regressing on the log of population and the age of the contract.
 lm1=lm(BCS~logenr + yrs_old,data=D1_data)
 lm2=lm(CCS~logenr+ yrs_old,data=D2_data)
@@ -389,33 +384,36 @@ coef(lm2)
 coef(lm3)
 
 
+```
+
+```{r message=FALSE, warning=FALSE,echo=FALSE}
 #Plots
-D1_data %>%  ggplot(aes(logenr,DEye)) +
+D1_data %>%  ggplot(aes(logenr,BCS)) +
              geom_point(alpha = 0.5) +
              geom_abline(intercept = coefficients(lm1)[1], slope = coefficients(lm1)[2], col = "blue")+
-              ylab("Diabetes Care - Eye Exam") +
+              ylab("Breast Cancer Screening") +
               xlab("Log of Enrollment")
 
-D3_data %>%  ggplot(aes(logenr,DSugar)) +
+D2_data %>%  ggplot(aes(logenr,CCS)) +
              geom_point(alpha = 0.5) +
-             geom_abline(intercept = coefficients(lm3)[1], slope = coefficients(lm3)[2], col = "red")+
-              ylab("Diabetes Care - Blood Sugar Maintinence") +
+             geom_abline(intercept = coefficients(lm2)[1], slope = coefficients(lm2)[2], col = "red")+
+              ylab("Colorectal Cancer Screening") +
               xlab("Log of Enrollment")
 
-D4_data %>%  ggplot(aes(logenr,DMed)) +
+D3_data %>%  ggplot(aes(logenr,BMI)) +
              geom_point(alpha = 0.5) +
-             geom_abline(intercept = coefficients(lm4)[1], slope = coefficients(lm4)[2], col = "purple")+
-              ylab("Medication adherence for Diabetes Drugs") +
+             geom_abline(intercept = coefficients(lm3)[1], slope = coefficients(lm3)[2], col = "purple")+
+              ylab("BMI Assessments") +
               xlab("Log of Enrollment")
 
 ```
 
 
-Similar to with the diabetes measures, we can see that although for some measures the age and size of the contract is not a statistically significant predictor, it usually is, and it is the case the a larger/older contract performs better because of the sign of the coefficients.
+Similar to with the diabetes measures we can see that there is evidence that a larger/older contract performs better for these preventative health measures.
 
-Lastly, let's compare the three major private insurance players in this space that control over half of the market, United Health Group, Humana, and CVS (Aetna) using the measures for overall quality.
+Lastly, we compared the three major private insurance players in this space that control over half of the market, United Health Group, Humana, and CVS (Aetna) using the measures for overall quality.
 
-```{r}
+```{r message=FALSE, warning=FALSE,echo=FALSE}
 Priv_data1= final_data %>%
   filter(`Parent Organization`=='UnitedHealth Group, Inc.'
          | `Parent Organization`=='Humana Inc.'
@@ -460,7 +458,7 @@ Priv_data4= final_data %>%
 
 
 
-```{r}
+```{r message=FALSE, warning=FALSE,echo=FALSE, include=FALSE}
 #Linear regression, letting UHG be the "base" category, but adding Humana/CVS as comparison categories
 
 lm1=lm(Leave~hum+cvs,data=Priv_data1)
@@ -480,20 +478,11 @@ confint(lm4)
 
 ```
 
-Based on the results of these simple regressions, no major conclusions can be made about the quality of care based on which of the major insurers you choose, because some insurers perform better than other in various overall quality measures.
+Based on the results of some simple regression analysis on those measures , no major conclusions could be made about the quality of care based on which of the major insurers you choose, because some insurers perform better than other in various overall quality measures.
 
 # Conlusions
 
-
-
-
-
-
-
-
-
-
-
+To conclude, for those who are looking at using a Medicare Advantage plan, if you need help managing your diabetes or just need preventative measures/screenings, I would stick to older/larger plans. Furthermore, we suggest enrolling avoiding Regional Coordinated Care Plans as they perform worse that the other main plan types for overall quality measures.
 
 
 
